@@ -99,16 +99,54 @@ class PostgraduateStudent(Student):
         super().display_info()
         print(f"{self._research_topic}")
 
-class Unit:
+class Enrollable(ABC):
+
+    @abstractmethod
+    def add_student(self, student):
+        pass
+
+    @abstractmethod
+    def get_enrollment_count(self):
+        pass
+
+class Unit(Enrollable):
     def __init__(self, unit_code, unit_name):
         self.unit_code = unit_code
         self.unit_name = unit_name
+        self.students = []
+
     def __repr__(self):
         return f"{self.unit_code} - {self.unit_name}"
 
+    def get_enrollment_count(self):
+        return len(self.students)
+
+    def add_student(self, student):
+        if not isinstance(student, Student):      # ✅ checks actual type
+            print("Must be a Student.")
+            return                              #  guard clauses
+        if student in self.students:     # duplicate check
+            print(f"{student.get_full_name()} is already enrolled.")
+            return          
+        self.students.append(student)
+        print(f"{student.get_full_name()} enrolled successfully.")
+'''
+    def add_student(self, student):
+        if student.get_role() == "Student":
+            self.students.append(student)
+        else:
+            print("Person must be a student")
+'''
 def iterate(mix):
     for obj in mix:
         obj.display_info()
+
+def register_student_for_unit(student, unit):
+    if isinstance(unit, Enrollable):
+        unit.add_student(student)
+    else:
+        print("Error, unit can not be enrolled into")
+
     
 
 if __name__ == "__main__":
@@ -141,3 +179,8 @@ if __name__ == "__main__":
     mix.append(postgraduate_student1)
     iterate(mix)
     print(Person.mro())
+    unit1.add_student(student1)
+    unit1.add_student(student2)
+    print(f"Unit: {unit1}")
+    print(f"Enrolled students: {unit1.get_enrollment_count()}")
+    register_student_for_unit(teacher1, unit1)
