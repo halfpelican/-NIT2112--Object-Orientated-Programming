@@ -153,7 +153,24 @@ class SchoolRegistryMeta(type):
 
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
-            instance = 
+            instance = super().__call__(*args, **kwargs)
+            cls._instances[cls] = instance
+        return cls._instances[cls]
+
+class SchoolRegistry(metaclass=SchoolRegistryMeta):
+    def __init__(self):
+        self.registry = {}
+
+    def add_person(self, person):
+        if person.get_student_id() not in self.registry:
+            self.registry[f"{person.get_student_id()}"] = f"{person._first_name} {person._last_name}"
+    
+    def get_person_by_id(self, person_id):
+        if person_id in self.registry.keys():
+            print(f"{self.registry[person_id]}")
+        else:
+            print("Error")
+
 
 def iterate(mix):
     for obj in mix:
@@ -168,8 +185,8 @@ def register_student_for_unit(student, unit):
     
 
 if __name__ == "__main__":
-    student1 = Student("1254", "Ben", "Morovan")
-    student2 = Student("6454", "Billy", "Hartley")
+    student1 = Student(1254, "Ben", "Morovan")
+    student2 = Student(6454, "Billy", "Hartley")
     unit1 = Unit("NIT2215", "Data Revolution")
     student1.enroll(unit1)    
     print(student1.get_full_name())
@@ -212,3 +229,12 @@ if __name__ == "__main__":
     register_student_for_unit(student3, unit3)
     print(f"{unit2.get_enrollment_count()} students are currently enrolled in {unit2.unit_name}, {unit2.students}")
     print(unit2.generate_report())
+    registry1 = SchoolRegistry()
+    registry1.add_person(student1)
+    print(registry1.registry)
+    registry2 = SchoolRegistry()
+    print(registry1 is registry2)
+    print(registry2.registry)
+    registry1.add_person(student2)
+    print(registry2.registry)
+    registry1.get_person_by_id(1254)
