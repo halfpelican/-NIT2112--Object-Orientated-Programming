@@ -42,6 +42,45 @@ class Subject:
         }
         return grade_map[self.grade]
 
+        @dataclass
+        class AcademicRecord:
+            """
+            Represents a student's complete academic record.
+            Acts as a data container that bridges Student, Subject, and reporting logic.
+            Responsibilities: aggregate student data, validate record integrity.
+            """
+            
+            student: Student
+            subjects: List[Subject]
+            record_created_date: date
+            
+            def __post_init__(self) -> None:
+                """Validate record after initialisation."""
+                if not self.subjects:
+                    raise ValueError("Academic record must contain at least one subject.")
+            
+            def get_subjects_by_grade(self, grade: GradeType) -> List[Subject]:
+                """Filter subjects by grade achieved."""
+                return [s for s in self.subjects if s.grade == grade]
+            
+            def get_subjects_by_year(self, year: int) -> List[Subject]:
+                """Filter subjects completed in a specific year."""
+                return [s for s in self.subjects if s.year_completed == year]
+            
+            def has_failed_subjects(self) -> bool:
+                """Check if student has any fail grades."""
+                return any(s.grade == GradeType.F for s in self.subjects)
+                def grade_point_value(self) -> float:
+                    """Return numeric equivalent of grade for GPA calculation."""
+                    grade_map = {
+                        GradeType.HD: 4.0,
+                        GradeType.D: 3.0,
+                        GradeType.C: 2.0,
+                        GradeType.P: 1.0,
+                        GradeType.F: 0.0,
+                    }
+                    return grade_map[self.grade]
+
 
 @dataclass
 class Program:
