@@ -21,6 +21,33 @@ class Unit:
     def __repr__(self):
         return f"{self.unit_code} - {self.unit_name}"
 
+def check_student_prerequisites(student, prerequisite_units):
+    """
+    Check whether a student has all required prerequisite units.
+
+    Args:
+        student (Student): The student being checked.
+        prerequisite_units (list[Unit]): Units required before enrollment.
+
+    Returns:
+        tuple[bool, list[str]]: A tuple containing:
+            - True/False indicating whether all prerequisites are met.
+            - A list of missing prerequisite unit codes.
+    """
+    if not isinstance(student, Student):
+        raise InvalidDataError("Prerequisite check requires a Student object.")
+
+    enrolled_codes = {
+        unit.unit_code for unit in student.units_enrolled if hasattr(unit, "unit_code")
+    }
+    missing = [
+        unit.unit_code
+        for unit in prerequisite_units
+        if hasattr(unit, "unit_code") and unit.unit_code not in enrolled_codes
+    ]
+
+    return len(missing) == 0, missing
+
 
 if __name__ == "__main__":
     student1 = Student("1254", "Ben", "Morovan")

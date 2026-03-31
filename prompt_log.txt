@@ -1,0 +1,25 @@
+Prompt Log Export
+Date: 2026-03-31
+Workspace: (NIT2112) Object Orientated Programming
+
+1) User request:
+Generate Python docstrings for each method in the Person class, explaining what it does.
+
+Assistant actions:
+- Added docstrings to all methods in Person.
+- Added/standardised descriptions for constructor, getters/setters, display method, full_name property, and get_role abstract method.
+- Verified no errors after edit.
+
+2) User request:
+Do the same for the Person class itself.
+
+Assistant actions:
+- Added class-level docstring to Person:
+  "Abstract base class representing a person in the school system."
+- Verified no errors after edit.
+
+3) User request:
+export this prompt log toi pdf
+
+Assistant actions:
+- Exporting this log to PDF in the workspace.
