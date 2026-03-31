@@ -43,6 +43,7 @@ class HRAdapter:
         """Convert a legacy employee record into a Teacher object."""
         data = self.legacy.fetch_employee_data(employee_id)
         if data is not None:
+           
            return Teacher(
             data["first_name"],
             data["last_name"],
@@ -179,7 +180,8 @@ class UndergraduateStudent(Student):
 
     def display_info(self):
         """Print standard student details and the declared major."""
-        super().display_info()
+    #   super().display_info()
+        print(self.get_student_id())
         print(f"{self._major}")
 
 class PostgraduateStudent(Student):
