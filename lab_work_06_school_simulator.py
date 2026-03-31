@@ -18,6 +18,30 @@ class InvalidDataError(SchoolSystemError):
     """Raised when provided data is invalid"""
     pass
 
+class LegacyHRSystem:
+    def __init__(self):
+        self.employees = {
+            8874: {"first_name": "Terry", "last_name": "Harrison", "subject_taught": "Physics"},
+            8875: {"first_name": "Alice", "last_name": "Johnson", "subject_taught": "Mathematics"},
+        }
+
+    def fetch_employee_data(self, employee_id):
+        return self.employees.get(employee_id, None)
+
+class HRAdapter:
+    def __init__(self, legacy):
+        self.legacy = legacy
+    def get_teacher_details(self, employee_id):
+        data = self.legacy.fetch_employee_data(employee_id)
+        if data is not None:
+           return Teacher(
+            data["first_name"],
+            data["last_name"],
+            employee_id,
+            data["subject_taught"]
+        )
+        else:
+            raise ValueError(f"No employee found with ID: {employee_id}")
 
 class Person(ABC):
     def __init__(self, first_name, last_name):
@@ -155,7 +179,7 @@ class Unit(Enrollable, Reportable):
             raise EnrollmentError("Must be a Student.")                              #  guard clauses
         elif student in self.students:     # duplicate check
             raise EnrollmentError(f"{student.get_full_name()} is already enrolled.")
-        elif len(self.students) > 0:
+        elif len(self.students) > 10:
             self.notify()
             message = f"Unit {self.unit_code} is now full. Cannot enroll {student.get_full_name()}."
             raise EnrollmentError(message)
@@ -247,10 +271,8 @@ class PersonFactory:
             else:
                 raise ValueError(f"Unknown person type: '{person_type}'")
         except ValueError as e:
-            print(f"Error creating person: {e}")
             raise FactoryError(f"Failed to create person of type '{person_type}'") from e
         except KeyError as e:
-            print(f"Incorrect keyword: {e}")
             raise InvalidDataError(f"Missing required data for '{person_type}': {e}") from e
         finally:
             print("Person creation attempted with type:", person_type)
@@ -281,7 +303,22 @@ if __name__ == "__main__":
     unit1.attach(student1)
     unit1.add_student(student2)
     factory = PersonFactory()
-    student3 = factory.create_person("student",   student_id=9001,  first_name="Ana",   last_name="Cruz")
-    teacher1 = factory.create_person("teacher",   first_name="Terry", last_name="Harrison", employee_id=8874, subject_taught="Physics")
+    student3 = factory.create_person("student", student_id=9000, first_name="John", last_name="Smith")
+    try:
+        print("Reading data...")
+        student4 = factory.create_person("student", student_id=9001, first_name="Ana", last_name="Cruz")
+    except (FactoryError, InvalidDataError) as e:
+        print(f"Error creating person: {e}")
+        print(f"Caused by: {e.__cause__}")   
+    finally:
+        print("Closing file...")
     register_student_for_unit(student3, unit1)
-    register_student_for_unit(teacher1, unit1)
+    reg1 = SchoolRegistry()
+    reg2 = SchoolRegistry()
+    print(reg1 is reg2)  # True
+    reg1.add_person(student1)
+    reg1.get_person_by_id(1254)
+    legacy = LegacyHRSystem()
+    adapter = HRAdapter(legacy)
+    teacher1 = adapter.get_teacher_details(8874)
+    teacher1.display_info()
