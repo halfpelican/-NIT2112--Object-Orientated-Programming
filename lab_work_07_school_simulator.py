@@ -386,12 +386,31 @@ class EnrollmentSystem:
             raise EnrollmentError(f"Enrollment failed: {e}") from e
 
     def get_unit_enrollments(self, unit_code):
-        """Return enrollment information for the given unit code."""
-        pass
+        """Return enrollment information for the given unit code.
+
+        Returns a dict with unit details and enrolled student names, or raises
+        InvalidDataError when the unit code is not registered.
+        """
+        unit = self.units.get(unit_code)
+        if not isinstance(unit, Unit):
+            raise InvalidDataError(f"No unit found for code: {unit_code}")
+        return {
+            "unit_code": unit.unit_code,
+            "unit_name": unit.unit_name,
+            "enrollment_count": unit.get_enrollment_count(),
+            "students": [s.get_full_name() for s in unit.students],
+        }
 
     def get_student_schedule(self, student_id):
-        """Return the list of units scheduled for the given student ID."""
-        pass
+        """Return the list of units scheduled for the given student ID.
+
+        Returns a list of unit repr strings, or raises InvalidDataError when
+        the student ID is not present in the registry.
+        """
+        student = self.registry.get_person_by_id(student_id)
+        if not isinstance(student, Student):
+            raise InvalidDataError(f"No student found for ID: {student_id}")
+        return [str(unit) for unit in student.units_enrolled]
 
 
 class PersonFactory:
@@ -518,8 +537,18 @@ if __name__ == "__main__":
     enrollment_system.units[unit2.unit_code] = unit2
 
     print(enrollment_system.enroll_student_in_unit(9010, "NIT3001"))
-    print(enrollment_system.enroll_student_in_unit(9999, "NIT3001"))
-    print(enrollment_system.enroll_student_in_unit(9010, "UNKNOWN"))
+
+    # Non-existent student ID — expect a graceful error message, not a crash.
+    try:
+        print(enrollment_system.enroll_student_in_unit(9999, "NIT3001"))
+    except (InvalidDataError, EnrollmentError) as e:
+        print(f"Could not enroll: {e}")
+
+    # Non-existent unit code — expect a graceful error message, not a crash.
+    try:
+        print(enrollment_system.enroll_student_in_unit(9010, "UNKNOWN"))
+    except (InvalidDataError, EnrollmentError) as e:
+        print(f"Could not enroll: {e}")
 
     legacy = LegacyHRSystem()
     adapter = HRAdapter(legacy)
