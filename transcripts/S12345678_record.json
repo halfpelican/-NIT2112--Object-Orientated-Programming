@@ -1,0 +1,45 @@
+{
+  "student_id": "S12345678",
+  "first_name": "Alice",
+  "last_name": "Chen",
+  "program": "Bachelor of Data Science",
+  "program_code": "BDS",
+  "total_credit_points": 48,
+  "gpa": 3.25,
+  "commencement_date": "2023-01-15",
+  "expected_completion": "2026-11-30",
+  "subjects": [
+    {
+      "code": "NIT1101",
+      "name": "Foundations of Programming",
+      "credit_points": 12,
+      "grade": "HD",
+      "year": 2023,
+      "grade_point": 4.0
+    },
+    {
+      "code": "NIT1102",
+      "name": "Data Fundamentals",
+      "credit_points": 12,
+      "grade": "D",
+      "year": 2023,
+      "grade_point": 3.0
+    },
+    {
+      "code": "NIT2112",
+      "name": "Object Orientated Programming",
+      "credit_points": 12,
+      "grade": "C",
+      "year": 2024,
+      "grade_point": 2.0
+    },
+    {
+      "code": "NIT2201",
+      "name": "Database Design",
+      "credit_points": 12,
+      "grade": "HD",
+      "year": 2024,
+      "grade_point": 4.0
+    }
+  ]
+}

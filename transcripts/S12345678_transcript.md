@@ -1,0 +1,64 @@
+# Academic Transcript
+
+| Field | Value |
+|---|---|
+| Student ID | S12345678 |
+| Name | Alice Chen |
+| Program | Bachelor of Data Science (BDS) |
+| GPA | 3.25 / 4.0 |
+| Credit Points | 48 |
+
+## Full Transcript
+
+```
+======================================================================
+                         ACADEMIC TRANSCRIPT                          
+======================================================================
+Student ID:  S12345678
+Name:        Alice Chen
+Program:     Bachelor of Data Science (BDS)
+Commenced:   15/01/2023
+Expected:    30/11/2026
+----------------------------------------------------------------------
+
+Code         Subject                          CP  Year Grade
+----------------------------------------------------------------------
+NIT1101      Foundations of Programming       12  2023 HD   
+NIT1102      Data Fundamentals                12  2023 D    
+NIT2112      Object Orientated Programming    12  2024 C    
+NIT2201      Database Design                  12  2024 HD   
+
+
+                           YEARLY BREAKDOWN                           
+----------------------------------------------------------------------
+
+  2023  (24 CP)
+    NIT1101      Foundations of Programming     HD
+    NIT1102      Data Fundamentals              D
+
+  2024  (24 CP)
+    NIT2112      Object Orientated Programming  C
+    NIT2201      Database Design                HD
+
+
+                          GRADE DISTRIBUTION                          
+----------------------------------------------------------------------
+  HD    ██                   2
+  D     █                    1
+  C     █                    1
+
+
+                           DEGREE PROGRESS                            
+----------------------------------------------------------------------
+  Completed:  48 / 240 credit points
+  Progress:   [████░░░░░░░░░░░░░░░░] 20.0%
+  Remaining:  192 credit points to complete.
+
+
+----------------------------------------------------------------------
+Total Credit Points Completed: 48
+Grade Point Average (GPA):     3.25 / 4.0
+Academic Standing:             Distinction Standing
+======================================================================
+
+```
