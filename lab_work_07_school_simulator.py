@@ -555,4 +555,6 @@ if __name__ == "__main__":
     legacy = LegacyHRSystem()
     adapter = HRAdapter(legacy)
     teacher1 = adapter.get_teacher_details(8874)
+    student6 = factory.create_person("undergraduate", student_id=9100, first_name="Kramer", last_name="Lauder", major="Computer Science")
     teacher1.display_info()
+    student6.display_info()

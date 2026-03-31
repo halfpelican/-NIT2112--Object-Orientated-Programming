@@ -23,3 +23,66 @@ export this prompt log toi pdf
 
 Assistant actions:
 - Exporting this log to PDF in the workspace.
+
+4) User request:
+Create an EnrollmentSystem singleton class that integrates with SchoolRegistry.
+
+Assistant actions:
+- Created EnrollmentSystem singleton using __new__ class method pattern.
+- Initialised self.registry (SchoolRegistry instance) and self.units dictionary.
+- Added three method scaffolds: enroll_student_in_unit(), get_unit_enrollments(), get_student_schedule().
+- Verified no errors after implementation.
+
+5) User request:
+Use registry to find Student object by student_id in the enroll_student_in_unit method.
+
+Assistant actions:
+- Modified SchoolRegistry to store actual Student/Person objects instead of formatted strings.
+- Implemented student lookup using registry.get_person_by_id(student_id).
+- Added type validation to ensure retrieved object is a Student instance.
+- Verified no errors after changes.
+
+6) User request:
+Implement unit lookup by unit_code.
+
+Assistant actions:
+- Added self.units dictionary storage to EnrollmentSystem.
+- Implemented unit retrieval from self.units[unit_code].
+- Added type validation to ensure retrieved object is a Unit instance.
+- Verified no errors after implementation.
+
+7) User request:
+Check prerequisites before enrollment and execute enrollment via unit.add_student().
+
+Assistant actions:
+- Integrated check_prerequisites(student, unit) validation into enroll_student_in_unit().
+- Added logic to call unit.add_student(student) for actual enrollment execution.
+- Added success message printing: "Enrollment successful: {status_message}".
+- Verified no errors after implementation.
+
+8) User request:
+Wrap the enrollment method in error handling with try/except for InvalidDataError and EnrollmentError.
+
+Assistant actions:
+- Added try/except blocks catching InvalidDataError and EnrollmentError.
+- Changed error handling from silent return to exception re-raising pattern.
+- Added error message printing before re-raising exceptions.
+- Verified correct exception propagation.
+
+9) User request:
+Create test scenarios demonstrating success and error paths.
+
+Assistant actions:
+- Created test student (Lena Parker, id=9010) via PersonFactory with prerequisites set.
+- Created test unit (NIT3001) with prerequisite requirements.
+- Added three test calls wrapped in try/except blocks: valid enrollment, missing student, missing unit.
+- All test paths executed successfully with proper error messages.
+
+10) User request:
+Export conversation as markdown documentation.
+
+Assistant actions:
+- Created CONVERSATION_LOG.md with comprehensive documentation.
+- Included implementation overview, code snippets, test results, design decisions, and lessons learned.
+- Documented all five development phases and progression.
+- File available in workspace for reference and export.
