@@ -1,0 +1,117 @@
+{
+  "zoo_name": "OzZoo",
+  "starting_budget": 10000.0,
+  "starting_enclosures": [
+    {
+      "type": "eucalyptus_grove",
+      "id": "enc_euc_1",
+      "name": "Koala Corner",
+      "capacity": 6
+    },
+    {
+      "type": "outback_savanna",
+      "id": "enc_out_1",
+      "name": "Outback Plains",
+      "capacity": 10
+    },
+    {
+      "type": "billabong",
+      "id": "enc_bil_1",
+      "name": "Crocodile Creek",
+      "capacity": 5
+    },
+    {
+      "type": "rainforest_aviary",
+      "id": "enc_avi_1",
+      "name": "Bird Paradise",
+      "capacity": 8
+    },
+    {
+      "type": "reptile_house",
+      "id": "enc_rep_1",
+      "name": "Reptile Realm",
+      "capacity": 6
+    }
+  ],
+  "starting_animals": [
+    {"type": "koala", "name": "Blinky", "age": 3, "gender": "male", "enclosure": "enc_euc_1"},
+    {"type": "koala", "name": "Bella", "age": 2, "gender": "female", "enclosure": "enc_euc_1"},
+    {"type": "kangaroo", "name": "Skippy", "age": 5, "gender": "male", "enclosure": "enc_out_1"},
+    {"type": "kangaroo", "name": "Sheila", "age": 4, "gender": "female", "enclosure": "enc_out_1"},
+    {"type": "wombat", "name": "Wally", "age": 3, "gender": "male", "enclosure": "enc_out_1"},
+    {"type": "emu", "name": "Eddie", "age": 2, "gender": "male", "enclosure": "enc_avi_1"},
+    {"type": "saltwater_croc", "name": "Chomper", "age": 8, "gender": "male", "enclosure": "enc_bil_1"},
+    {"type": "frilled_lizard", "name": "Frilly", "age": 2, "gender": "female", "enclosure": "enc_rep_1"}
+  ],
+  "starting_keepers": [
+    {"id": "keeper_1", "name": "Steve Wildman", "specialty": "GENERAL"}
+  ],
+  "starting_food_stock": {
+    "eucalyptus": 50,
+    "grass": 80,
+    "meat": 30,
+    "fish": 20,
+    "insects": 40
+  },
+  "starting_medicine_stock": {
+    "general": 5,
+    "mammal_specialist": 3,
+    "avian": 3,
+    "reptile": 3
+  },
+  "food_prices": {
+    "eucalyptus": {"name": "Fresh Eucalyptus Leaves", "cost": 5, "nutrition": 60},
+    "grass": {"name": "Native Grass Bundle", "cost": 3, "nutrition": 50},
+    "meat": {"name": "Fresh Meat", "cost": 15, "nutrition": 70},
+    "fish": {"name": "Fresh Fish", "cost": 12, "nutrition": 65},
+    "insects": {"name": "Mixed Insects", "cost": 8, "nutrition": 55}
+  },
+  "medicine_prices": {
+    "general": {"name": "General Antibiotics", "treats": ["all"], "cost": 50, "healing": 30},
+    "mammal_specialist": {"name": "Mammal Care Plus", "treats": ["mammal"], "cost": 40, "healing": 40},
+    "avian": {"name": "Avian Wellness", "treats": ["bird"], "cost": 45, "healing": 35},
+    "reptile": {"name": "Reptile Remedy", "treats": ["reptile"], "cost": 55, "healing": 45}
+  },
+  "animal_prices": {
+    "koala": 500,
+    "kangaroo": 400,
+    "wombat": 350,
+    "platypus": 600,
+    "tasmanian_devil": 450,
+    "echidna": 380,
+    "emu": 300,
+    "wedge_tailed_eagle": 550,
+    "saltwater_croc": 700,
+    "frilled_lizard": 250
+  },
+  "enclosure_prices": {
+    "eucalyptus_grove": 1200,
+    "outback_savanna": 1000,
+    "billabong": 1500,
+    "rainforest_aviary": 1400,
+    "reptile_house": 1100
+  },
+  "ticket_prices": {
+    "CHILD": 15.0,
+    "ADULT": 30.0,
+    "SENIOR": 20.0,
+    "FAMILY": 80.0,
+    "VIP": 100.0
+  },
+  "random_event_chances": {
+    "heatwave": 0.10,
+    "vip_visitor": 0.05,
+    "conservation_grant": 0.05,
+    "school_excursion": 0.15,
+    "media_coverage": 0.05
+  },
+  "ui_theme": {
+    "primary_colour": "#2E7D32",
+    "secondary_colour": "#8D6E63",
+    "background_colour": "#FFF8E1",
+    "accent_colour": "#FF8F00",
+    "danger_colour": "#D32F2F",
+    "success_colour": "#388E3C",
+    "text_colour": "#3E2723"
+  }
+}

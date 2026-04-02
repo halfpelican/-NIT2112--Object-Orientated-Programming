@@ -1,6 +1,5 @@
 
 from abc import ABC, abstractmethod
-from typing import cast
 
 
 class SchoolSystemError(Exception):
@@ -239,18 +238,6 @@ class Unit(Enrollable, Reportable):
         """Return the current number of enrolled students."""
         return len(self.students)
 
-    def _is_valid_student(self, student) -> bool:
-        """Return True when the provided object is a Student instance."""
-        return isinstance(student, Student)
-
-    def _is_already_enrolled(self, student: Student) -> bool:
-        """Return True when the student is already in this unit."""
-        return student in self.students
-
-    def _has_capacity(self) -> bool:
-        """Return True when the unit can accept at least one more student."""
-        return len(self.students) < self.max_students
-
     def add_student(self, student: Student) -> str:
         """
         Enroll a student in this unit.
@@ -259,13 +246,13 @@ class Unit(Enrollable, Reportable):
             EnrollmentError: If the object is not a Student, the student is already
                 enrolled, or the unit is at capacity.
         """
-        if not self._is_valid_student(student):
-            raise EnrollmentError("Must be a Student.")
+        if not isinstance(student, Student):      # ✅ checks actual type
+            raise EnrollmentError("Must be a Student.")                              #  guard clauses
         
-        if self._is_already_enrolled(student):
+        if student in self.students:     # duplicate check
             raise EnrollmentError(f"{student.get_full_name()} is already enrolled.")
         
-        if not self._has_capacity():
+        if len(self.students) >= self.max_students:
             message = f"Unit {self.unit_code} is now full. Cannot enroll {student.get_full_name()}."
             self.notify(message)
             raise EnrollmentError(message)
@@ -513,44 +500,61 @@ def register_student_for_unit(student, unit):
     else:
         print("Error, unit can not be enrolled into")
 
-def main():
-    """Run focused tests for Unit.add_student behavior."""
-    print("=== Unit.add_student Tests ===")
-
-    unit = Unit("NIT2215", "Data Revolution", max_students=2)
-    student1 = Student(1254, "Ben", "Morovan")
-    student2 = Student(6454, "Billy", "Hartley")
-    student3 = Student(9000, "John", "Smith")
-
-    # Optional observer to show full-capacity notifications.
-    unit.attach(student1)
-
-    print("\n1) Valid enrollment")
-    try:
-        print(unit.add_student(student1))
-    except EnrollmentError as e:
-        print(f"Unexpected error: {e}")
-
-    print("\n2) Duplicate enrollment")
-    try:
-        print(unit.add_student(student1))
-    except EnrollmentError as e:
-        print(f"Expected error: {e}")
-
-    print("\n3) Invalid type enrollment")
-    try:
-        invalid_student = cast(Student, "not-a-student")
-        print(unit.add_student(invalid_student))
-    except EnrollmentError as e:
-        print(f"Expected error: {e}")
-
-    print("\n4) Capacity limit")
-    try:
-        print(unit.add_student(student2))
-        print(unit.add_student(student3))
-    except EnrollmentError as e:
-        print(f"Expected error: {e}")
-
+    
 
 if __name__ == "__main__":
-    main()
+    student1 = Student(1254, "Ben", "Morovan")
+    student2 = Student(6454, "Billy", "Hartley")
+    unit1 = Unit("NIT2215", "Data Revolution")
+    unit1.add_student(student1)
+    unit1.attach(student1)
+    unit1.add_student(student2)
+    factory = PersonFactory()
+    student3 = factory.create_person("student", student_id=9000, first_name="John", last_name="Smith")
+    try:
+        print("Reading data...")
+        student4 = factory.create_person("student", student_id=9001, first_name="Ana", last_name="Cruz")
+    except (FactoryError, InvalidDataError) as e:
+        print(f"Error creating person: {e}")
+        print(f"Caused by: {e.__cause__}")   
+    finally:
+        print("Closing file...")
+    register_student_for_unit(student3, unit1)
+    reg1 = SchoolRegistry()
+    reg2 = SchoolRegistry()
+    print(reg1 is reg2)  # True
+    reg1.add_person(student1)
+    reg1.get_person_by_id(1254)
+
+    # Review flow: create via factory, register, map unit, and test enrollment paths.
+    student5 = factory.create_person(
+        "student", student_id=9010, first_name="Lena", last_name="Parker"
+    )
+    student5.units_completed = ["NIT1201"]
+    reg1.add_person(student5)
+
+    enrollment_system = EnrollmentSystem()
+    unit2 = Unit("NIT3001", "Advanced OOP")
+    unit2.prerequisites = ["NIT1201"]
+    enrollment_system.units[unit2.unit_code] = unit2
+
+    print(enrollment_system.enroll_student_in_unit(9010, "NIT3001"))
+
+    # Non-existent student ID — expect a graceful error message, not a crash.
+    try:
+        print(enrollment_system.enroll_student_in_unit(9999, "NIT3001"))
+    except (InvalidDataError, EnrollmentError) as e:
+        print(f"Could not enroll: {e}")
+
+    # Non-existent unit code — expect a graceful error message, not a crash.
+    try:
+        print(enrollment_system.enroll_student_in_unit(9010, "UNKNOWN"))
+    except (InvalidDataError, EnrollmentError) as e:
+        print(f"Could not enroll: {e}")
+
+    legacy = LegacyHRSystem()
+    adapter = HRAdapter(legacy)
+    teacher1 = adapter.get_teacher_details(8874)
+    student6 = factory.create_person("undergraduate", student_id=9100, first_name="Kramer", last_name="Lauder", major="Computer Science")
+    teacher1.display_info()
+    student6.display_info()

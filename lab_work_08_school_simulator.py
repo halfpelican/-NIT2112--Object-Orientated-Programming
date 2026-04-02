@@ -171,6 +171,21 @@ class Student(Person):
         """Receive and print a notification from an observed unit."""
         print(f"Notification for {self.get_full_name()}: {message}")
 
+    def get_grade(self, score: int) -> str:
+        """Return a grade for a score from 0 to 100 inclusive."""
+        if score < 0 or score > 100:
+            raise InvalidDataError("Score must be between 0 and 100.")
+
+        if score >= 80:
+            return "HD"
+        if score >= 70:
+            return "D"
+        if score >= 60:
+            return "C"
+        if score >= 50:
+            return "P"
+        return "F"
+
 class UndergraduateStudent(Student):
     """Represents an undergraduate student with a major field."""
 
@@ -181,9 +196,13 @@ class UndergraduateStudent(Student):
 
     def display_info(self):
         """Print standard student details and the declared major."""
-    #   super().display_info()
-        print(self.get_student_id())
+        super().display_info()
+    #    print(self.get_student_id())
         print(f"{self._major}")
+
+    def get_grade(self, score: int) -> str:
+        """Return the undergraduate grade for a score from 0 to 100."""
+        return super().get_grade(score)
 
 class PostgraduateStudent(Student):
     """Represents a postgraduate student with a research topic."""
@@ -197,6 +216,10 @@ class PostgraduateStudent(Student):
         """Print standard student details and the research topic."""
         super().display_info()
         print(f"{self._research_topic}")
+
+    def get_grade(self, score: int) -> str:
+        """Return the postgraduate grade for a score from 0 to 100."""
+        return super().get_grade(score)
 
 class Enrollable(ABC):
     """Interface for objects that can enroll students."""
@@ -353,23 +376,63 @@ class SchoolRegistry(metaclass=SchoolRegistryMeta):
 
 
 class EnrollmentSystem:
-    """Singleton scaffold for managing student enrollments and schedules."""
+    """Singleton service for managing enrollments and timetable queries.
+
+    This class coordinates registry lookups and unit-level enrollment logic.
+    It stores a mapping of unit codes to ``Unit`` objects and exposes helper
+    methods for enrolling students and retrieving enrollment/schedule views.
+    """
 
     _instance = None
 
     def __new__(cls, *args, **kwargs):
-        """Create one shared EnrollmentSystem instance."""
+        """Create or return the shared EnrollmentSystem singleton instance.
+
+        Args:
+            *args: Positional arguments passed during instantiation.
+            **kwargs: Keyword arguments passed during instantiation.
+
+        Returns:
+            EnrollmentSystem: The single shared instance.
+        """
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self):
-        """Initialise the system and capture the singleton SchoolRegistry instance."""
+        """Initialise singleton dependencies and local unit storage.
+
+        Creates/uses the shared ``SchoolRegistry`` instance and prepares an
+        in-memory dictionary used to map ``unit_code`` to ``Unit`` objects.
+        """
         self.registry = SchoolRegistry()
         self.units = {}
 
     def enroll_student_in_unit(self, student_id, unit_code):
-        """Enroll a student identified by student_id into the unit identified by unit_code."""
+        """Enroll a registered student into a registered unit.
+
+        The method validates that the student exists in the registry and that the
+        target unit exists in the system. It then checks prerequisite completion
+        before delegating enrollment to ``Unit.add_student``. Any lookup/attribute
+        problems are converted to ``InvalidDataError``. Enrollment rule failures
+        (for example duplicate enrollment, full unit, or missing prerequisites)
+        are raised as ``EnrollmentError`` with context.
+
+        Args:
+            student_id: Identifier used to locate the student in the registry.
+            unit_code: Code used to locate the unit in ``self.units``.
+
+        Returns:
+            str: A success message returned by ``Unit.add_student`` when
+                enrollment completes.
+
+        Raises:
+            InvalidDataError: If student_id does not map to a valid Student,
+                unit_code does not map to a valid Unit, or required attributes
+                are missing during lookup/validation.
+            EnrollmentError: If prerequisites are not satisfied, the student is
+                already enrolled, or the unit is at capacity.
+        """
         try:
             registry = self.registry
             student = registry.get_person_by_id(student_id)
@@ -401,10 +464,18 @@ class EnrollmentSystem:
             raise EnrollmentError(f"Enrollment failed: {e}") from e
 
     def get_unit_enrollments(self, unit_code):
-        """Return enrollment information for the given unit code.
+        """Return enrollment summary data for a specific unit code.
 
-        Returns a dict with unit details and enrolled student names, or raises
-        InvalidDataError when the unit code is not registered.
+        Args:
+            unit_code: Code of the unit to inspect.
+
+        Returns:
+            dict: Enrollment summary containing ``unit_code``, ``unit_name``,
+                ``enrollment_count``, and a list of enrolled student names.
+
+        Raises:
+            InvalidDataError: If ``unit_code`` is not mapped to a valid
+                ``Unit`` instance.
         """
         unit = self.units.get(unit_code)
         if not isinstance(unit, Unit):
@@ -417,10 +488,18 @@ class EnrollmentSystem:
         }
 
     def get_student_schedule(self, student_id):
-        """Return the list of units scheduled for the given student ID.
+        """Return a student's enrolled-unit schedule as display strings.
 
-        Returns a list of unit repr strings, or raises InvalidDataError when
-        the student ID is not present in the registry.
+        Args:
+            student_id: Identifier used to locate the student in the registry.
+
+        Returns:
+            list[str]: List of unit string representations for the student's
+                current ``units_enrolled``.
+
+        Raises:
+            InvalidDataError: If ``student_id`` is not mapped to a valid
+                ``Student`` instance.
         """
         student = self.registry.get_person_by_id(student_id)
         if not isinstance(student, Student):
@@ -433,13 +512,16 @@ class PersonFactory:
 
     def create_person(self, person_type, **kwargs):
         """Create and return a person object based on person_type and keyword data."""
+        # Normalise input so callers can use mixed-case labels.
         person_type = person_type.lower()  # normalise so "Student" and "student" both work
         try:
+            # Shared required field check before type-specific construction.
             if "last_name" not in kwargs:
                 raise InvalidDataError(
                     f"Missing required data for '{person_type}': 'last_name'"
                 )
 
+            # Build the concrete object that matches the requested person type.
             if person_type == "student":
                 print(f"Creating student... {kwargs['last_name']}")
                 return Student(
@@ -472,14 +554,19 @@ class PersonFactory:
                     kwargs["research_topic"]
                 )
             else:
+                # Unknown type values are treated as a factory-level error.
                 raise ValueError(f"Unknown person type: '{person_type}'")
         except ValueError as e:
+            # Wrap unsupported type requests with a domain-specific exception.
             raise FactoryError(f"Failed to create person of type '{person_type}'") from e
         except KeyError as e:
+            # Missing constructor fields are reported as invalid input data.
             raise InvalidDataError(f"Missing required data for '{person_type}': {e}") from e
         except AttributeError as e:
+            # Catch malformed input objects accessed during object construction.
             raise InvalidDataError(f"Invalid data provided for '{person_type}': {e}") from e
         finally:
+            # Keep an audit-style log regardless of success or failure.
             print("Person creation attempted with type:", person_type)
 
 
@@ -487,6 +574,19 @@ def iterate(mix):
     """Call display_info on every object in the provided collection."""
     for obj in mix:
         obj.display_info()
+
+
+def test_polymorphism():
+    """Demonstrate polymorphism by calling display_info on mixed person types."""
+    people = [
+        Teacher("Terry", "Harrison", 8874, "Physics"),
+        Student(3001, "Mia", "Lopez"),
+        UndergraduateStudent(3002, "Ethan", "Ng", "Cybersecurity"),
+        PostgraduateStudent(3003, "Ava", "Singh", "AI in Healthcare"),
+    ]
+
+    print("\n=== Polymorphism Demo ===")
+    iterate(people)
 
 
 def check_prerequisites(student, unit):
@@ -535,21 +635,23 @@ def main():
     try:
         print(unit.add_student(student1))
     except EnrollmentError as e:
-        print(f"Expected error: {e}")
+        print(f"Unexpected error: {e}")
 
     print("\n3) Invalid type enrollment")
     try:
         invalid_student = cast(Student, "not-a-student")
         print(unit.add_student(invalid_student))
     except EnrollmentError as e:
-        print(f"Expected error: {e}")
+        print(f"Unexpected error: {e}")
 
     print("\n4) Capacity limit")
     try:
         print(unit.add_student(student2))
         print(unit.add_student(student3))
     except EnrollmentError as e:
-        print(f"Expected error: {e}")
+        print(f"Unexpected error: {e}")
+    print("--------line_break--------")
+    test_polymorphism()
 
 
 if __name__ == "__main__":
