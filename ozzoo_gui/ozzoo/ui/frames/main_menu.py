@@ -200,5 +200,6 @@ class MainMenuFrame(tk.Frame):
         self._app.add_nav_button("Dashboard", "zoo_status", "📊")
         self._app.add_nav_button("Animals", "animal_view", "🦘")
         self._app.add_nav_button("Enclosures", "enclosure_view", "🏕️")
+        self._app.add_nav_button("Map", "map_view", "🗺️")
         self._app.add_nav_button("Shop", "shop", "🛒")
         self._app.add_nav_button("Settings", "settings", "⚙️")

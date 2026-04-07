@@ -102,12 +102,12 @@ class ShopFrame(tk.Frame):
         items_frame = tk.Frame(frame, bg=self._app.COLOURS["card_bg"])
         items_frame.pack(fill="both", expand=True, padx=15, pady=10)
         
-        for food_type, data in FOOD_TYPES.items():
+        for food_type, food in FOOD_TYPES.items():
             self._create_purchase_row(
                 items_frame,
                 food_type,
-                data["name"],
-                data["cost"],
+                food.name,
+                food.cost,
                 "food"
             )
     
@@ -140,13 +140,13 @@ class ShopFrame(tk.Frame):
         items_frame = tk.Frame(frame, bg=self._app.COLOURS["card_bg"])
         items_frame.pack(fill="both", expand=True, padx=15, pady=10)
         
-        for med_type, data in MEDICINE_TYPES.items():
-            treats = ", ".join(data["treats"])
+        for med_type, medicine in MEDICINE_TYPES.items():
+            treats = ", ".join(medicine.treats)
             self._create_purchase_row(
                 items_frame,
                 med_type,
-                f"{data['name']} (treats: {treats})",
-                data["cost"],
+                f"{medicine.name} (treats: {treats})",
+                medicine.cost,
                 "medicine"
             )
     
@@ -326,7 +326,7 @@ class ShopFrame(tk.Frame):
         # Create dialogue
         dialog = tk.Toplevel(self._app)
         dialog.title(f"Purchase {info['display_name']}")
-        dialog.geometry("400x350")
+        dialog.geometry("450x500")
         dialog.transient(self._app)
         dialog.grab_set()
         
@@ -397,33 +397,63 @@ class ShopFrame(tk.Frame):
             bg=self._app.COLOURS["card_bg"]
         ).pack(anchor="w", pady=(10, 5))
         
+        # Get all non-full enclosures (both compatible and incompatible)
+        all_encs = [e for e in self._zoo.enclosures.values() if not e.is_full]
         compatible_encs = [
-            e for e in self._zoo.enclosures.values()
-            if e.get_habitat_type() == info["habitat"] and not e.is_full
+            e for e in all_encs
+            if e.get_habitat_type() == info["habitat"]
         ]
+        incompatible_encs = [
+            e for e in all_encs
+            if e.get_habitat_type() != info["habitat"]
+        ]
+        
         enc_var = tk.StringVar()
         enc_ids = []
+        enc_types = []  # Track if compatible or not
         enc_combo = None
         
-        if compatible_encs:
-            enc_options = [
-                f"{e.name} ({len(e.animals)}/{e.capacity})"
-                for e in compatible_encs
-            ]
-            enc_ids = [e.enclosure_id for e in compatible_encs]
+        if all_encs:
+            enc_options = []
+            # Add compatible enclosures first
+            for e in compatible_encs:
+                enc_options.append(
+                    f"{e.name} ({len(e.animals)}/{e.capacity}) - {e.get_habitat_type().replace('_', ' ').title()}"
+                )
+                enc_ids.append(e.enclosure_id)
+                enc_types.append(True)  # Compatible
+            
+            # Add incompatible enclosures with warning
+            for e in incompatible_encs:
+                enc_options.append(
+                    f"{e.name} ({len(e.animals)}/{e.capacity}) - {e.get_habitat_type().replace('_', ' ').title()} [WRONG HABITAT!]"
+                )
+                enc_ids.append(e.enclosure_id)
+                enc_types.append(False)  # Incompatible
+            
             enc_combo = ttk.Combobox(
                 form,
                 textvariable=enc_var,
                 values=enc_options,
                 state="readonly",
-                width=30
+                width=50
             )
             enc_combo.pack(anchor="w")
             enc_combo.current(0)
+            
+            # Show warning label
+            warning_label = tk.Label(
+                form,
+                text="⚠ Animals placed in wrong habitats will have health issues!",
+                bg=self._app.COLOURS["card_bg"],
+                fg=self._app.COLOURS["accent"],
+                font=("Segoe UI", 9, "italic")
+            )
+            warning_label.pack(anchor="w", pady=(5, 0))
         else:
             tk.Label(
                 form,
-                text="No compatible enclosure available!",
+                text="No available enclosure!",
                 bg=self._app.COLOURS["card_bg"],
                 fg=self._app.COLOURS["danger"]
             ).pack(anchor="w")
@@ -436,15 +466,32 @@ class ShopFrame(tk.Frame):
                     "Please enter a name for the animal."
                 )
                 return
-            if not compatible_encs:
+            if not all_encs:
                 self._app.show_warning(
                     "No Enclosure",
-                    "Build a compatible enclosure first!"
+                    "Build an enclosure first!"
                 )
                 return
             
-            enc_idx = enc_combo.current() if compatible_encs else 0
-            enc_id = enc_ids[enc_idx] if enc_idx >= 0 else None
+            enc_idx = enc_combo.current() if all_encs else -1
+            if enc_idx < 0:
+                return
+            
+            enc_id = enc_ids[enc_idx]
+            is_compatible = enc_types[enc_idx]
+            
+            # Prevent purchase if placing in wrong habitat
+            if not is_compatible:
+                from tkinter import messagebox
+                messagebox.showwarning(
+                    "Wrong Habitat Warning!",
+                    f"{name} ({info['display_name']}) cannot be placed in this enclosure!\n\n"
+                    f"Required Habitat: {info['habitat'].replace('_', ' ').title()}\n"
+                    f"Selected Enclosure: {self._zoo.enclosures[enc_id].get_habitat_type().replace('_', ' ').title()}\n\n"
+                    f"This animal will suffer health problems and may die!\n\n"
+                    f"Please select a compatible enclosure."
+                )
+                return
             
             try:
                 self._zoo.purchase_animal(
@@ -456,7 +503,7 @@ class ShopFrame(tk.Frame):
                 )
                 self._app.show_info(
                     "Purchase Complete",
-                    f"Welcome {name} to OzZoo!"
+                    f"Welcome {name} to OzZoo! They are happy in their new home."
                 )
                 self._update_budget()
                 self._app.update_header_info()

@@ -15,6 +15,7 @@ from .enclosure import Enclosure, create_enclosure, ENCLOSURE_TYPES
 from .resources import Food, Medicine, FOOD_TYPES, MEDICINE_TYPES
 from .visitor import Visitor, generate_random_visitor, TicketType
 from .staff import ZooKeeper, generate_random_keeper, Specialty
+from .map_tile import MapTile, TileType, PLACEMENT_COSTS, ITEM_INFO
 from ..patterns.factory import AnimalFactory
 from ..patterns.observer import EventManager, EventTypes
 from ..exceptions import (
@@ -33,6 +34,7 @@ class Zoo:
     
     DEFAULT_BUDGET = 10000.0
     TICKET_PRICE_MODIFIER = 1.0  # Can be adjusted
+    GRID_SIZE = 10  # 10x10 map grid
     
     def __init__(self, name: str = "OzZoo", budget: float = DEFAULT_BUDGET):
         self._name = name
@@ -44,6 +46,9 @@ class Zoo:
         self._animals: Dict[str, Animal] = {}  # animal_name -> Animal
         self._visitors: List[Visitor] = []
         self._keepers: Dict[str, ZooKeeper] = {}
+        
+        # Map grid (10x10)
+        self._map_grid: List[List[MapTile]] = self._init_grid()
         
         # Resources
         self._food_stock: Dict[str, int] = {
@@ -72,6 +77,13 @@ class Zoo:
         
         # Ticket price modifier
         self._ticket_modifier = 1.0
+    
+    def _init_grid(self) -> List[List[MapTile]]:
+        """Initialize empty 10x10 grid."""
+        return [
+            [MapTile(x, y) for y in range(self.GRID_SIZE)]
+            for x in range(self.GRID_SIZE)
+        ]
     
     # Properties
     @property
@@ -143,6 +155,95 @@ class Zoo:
             return 0.0
         return sum((a.health + a.happiness) / 2 for a in alive) / len(alive)
     
+    @property
+    def map_grid(self) -> List[List[MapTile]]:
+        """Get the zoo map grid."""
+        return self._map_grid
+    
+    # ============ MAP MANAGEMENT ============
+    
+    def get_tile(self, x: int, y: int) -> Optional[MapTile]:
+        """
+        Get tile at coordinates.
+        
+        Args:
+            x: X coordinate (0-9)
+            y: Y coordinate (0-9)
+            
+        Returns:
+            MapTile if coordinates valid, None otherwise.
+        """
+        if 0 <= x < self.GRID_SIZE and 0 <= y < self.GRID_SIZE:
+            return self._map_grid[x][y]
+        return None
+    
+    def place_item(
+        self, 
+        x: int, 
+        y: int, 
+        item_id: str, 
+        tile_type: TileType,
+        enclosure_ref: Optional[Enclosure] = None
+    ) -> tuple[bool, str]:
+        """
+        Place an item on the map grid.
+        
+        Args:
+            x: X coordinate
+            y: Y coordinate
+            item_id: ID of item to place
+            tile_type: Type of tile
+            enclosure_ref: Enclosure reference if placing enclosure
+            
+        Returns:
+            Tuple of (success, message)
+        """
+        tile = self.get_tile(x, y)
+        if not tile:
+            return False, "Invalid coordinates"
+        
+        if not tile.is_empty:
+            return False, "Tile is already occupied"
+        
+        # Check cost
+        cost = PLACEMENT_COSTS.get(item_id, 0)
+        if cost > self._budget:
+            return False, f"Insufficient funds! Need ${cost:,.2f}"
+        
+        # Place item
+        tile.tile_type = tile_type
+        tile.item_id = item_id
+        tile.enclosure_ref = enclosure_ref
+        
+        # Deduct cost
+        self._budget -= cost
+        self._total_expenses += cost
+        
+        item_name = ITEM_INFO.get(item_id, {}).get("name", item_id)
+        return True, f"Placed {item_name} for ${cost:,.2f}"
+    
+    def remove_item(self, x: int, y: int) -> tuple[bool, str]:
+        """
+        Remove an item from the map grid.
+        
+        Args:
+            x: X coordinate
+            y: Y coordinate
+            
+        Returns:
+            Tuple of (success, message)
+        """
+        tile = self.get_tile(x, y)
+        if not tile:
+            return False, "Invalid coordinates"
+        
+        if tile.is_empty:
+            return False, "Tile is already empty"
+        
+        item_name = ITEM_INFO.get(tile.item_id, {}).get("name", tile.item_id or "item")
+        tile.clear()
+        return True, f"Removed {item_name}"
+    
     # ============ ENCLOSURE MANAGEMENT ============
     
     def add_enclosure(self, enclosure: Enclosure) -> None:
@@ -197,9 +298,13 @@ class Zoo:
             KeyError: If enclosure doesn't exist
             HabitatCapacityExceededError: If enclosure is full
             InvalidHabitatError: If habitat type doesn't match
+            ValueError: If animal name already exists
         """
         if enclosure_id not in self._enclosures:
             raise KeyError(f"Enclosure '{enclosure_id}' not found")
+        
+        if animal.name in self._animals:
+            raise ValueError(f"Animal named '{animal.name}' already exists!")
         
         enclosure = self._enclosures[enclosure_id]
         enclosure.add_animal(animal)  # May raise exceptions
@@ -281,12 +386,10 @@ class Zoo:
         if self._food_stock.get(food_type, 0) < 1:
             return False, f"No {food_type} in stock!"
         
-        # Create food item and feed
-        food_data = FOOD_TYPES.get(food_type)
-        if not food_data:
+        # Get food item and feed
+        food = FOOD_TYPES.get(food_type)
+        if not food:
             return False, f"Unknown food type: {food_type}"
-        
-        food = Food(**food_data)
         if animal.feed(food):
             self._food_stock[food_type] -= 1
             self._event_manager.emit(
@@ -305,8 +408,8 @@ class Zoo:
         if food_type not in FOOD_TYPES:
             return False, f"Unknown food type: {food_type}"
         
-        food_data = FOOD_TYPES[food_type]
-        total_cost = food_data["cost"] * quantity
+        food = FOOD_TYPES[food_type]
+        total_cost = food.cost * quantity
         
         if self._budget < total_cost:
             return False, (
@@ -318,15 +421,15 @@ class Zoo:
         self._total_expenses += total_cost
         self._food_stock[food_type] = self._food_stock.get(food_type, 0) + quantity
         
-        return True, f"Purchased {quantity}x {food_data['name']} for ${total_cost:.2f}"
+        return True, f"Purchased {quantity}x {food.name} for ${total_cost:.2f}"
     
     def buy_medicine(self, medicine_type: str, quantity: int) -> tuple[bool, str]:
         """Buy medicine for the zoo."""
         if medicine_type not in MEDICINE_TYPES:
             return False, f"Unknown medicine type: {medicine_type}"
         
-        med_data = MEDICINE_TYPES[medicine_type]
-        total_cost = med_data["cost"] * quantity
+        medicine = MEDICINE_TYPES[medicine_type]
+        total_cost = medicine.cost * quantity
         
         if self._budget < total_cost:
             return False, (
@@ -340,7 +443,7 @@ class Zoo:
             self._medicine_stock.get(medicine_type, 0) + quantity
         )
         
-        return True, f"Purchased {quantity}x {med_data['name']} for ${total_cost:.2f}"
+        return True, f"Purchased {quantity}x {medicine.name} for ${total_cost:.2f}"
     
     # ============ STAFF ============
     
@@ -688,6 +791,7 @@ class Zoo:
             "enclosures": {k: v.to_dict() for k, v in self._enclosures.items()},
             "animals": {k: v.to_dict() for k, v in self._animals.items()},
             "keepers": {k: v.to_dict() for k, v in self._keepers.items()},
+            "map_grid": [[tile.to_dict() for tile in row] for row in self._map_grid],
         }
     
     @classmethod
@@ -734,6 +838,21 @@ class Zoo:
             keeper = ZooKeeper.from_dict(keeper_data)
             zoo._keepers[emp_id] = keeper
         
+        # Reconstruct map grid if present
+        if "map_grid" in data:
+            zoo._map_grid = [
+                [MapTile.from_dict(tile_data) for tile_data in row]
+                for row in data["map_grid"]
+            ]
+            
+            # Relink enclosure references in map tiles
+            for row in zoo._map_grid:
+                for tile in row:
+                    if tile.tile_type == TileType.ENCLOSURE and tile.item_id:
+                        # Try to link to actual enclosure
+                        if tile.item_id in zoo._enclosures:
+                            tile.enclosure_ref = zoo._enclosures[tile.item_id]
+        
         return zoo
 
 
@@ -778,4 +897,87 @@ def create_default_zoo() -> Zoo:
     keeper = ZooKeeper("keeper_1", "Steve Wildman", Specialty.GENERAL)
     zoo.hire_keeper(keeper, signing_bonus=0)  # Free starting keeper
     
+    # Pre-populate the map with starting layout
+    _populate_starter_map(zoo)
+    
     return zoo
+
+
+def _populate_starter_map(zoo: Zoo) -> None:
+    """
+    Pre-populate the map grid with a starter layout.
+    
+    Creates a nice starting zoo layout with enclosures, scenery, and facilities.
+    All starter items are free (no budget deduction).
+    """
+    # Save current budget to restore after (starter items are free)
+    original_budget = zoo._budget
+    zoo._budget = 999999.0  # Temporarily set high budget
+    
+    # Place enclosures (representing the 5 starting enclosures)
+    # Top-left: Koala Corner (2x2)
+    zoo.place_item(1, 1, "enclosure_koala", TileType.ENCLOSURE, zoo._enclosures.get("enc_euc_1"))
+    zoo.place_item(2, 1, "enclosure_koala", TileType.ENCLOSURE, zoo._enclosures.get("enc_euc_1"))
+    zoo.place_item(1, 2, "enclosure_koala", TileType.ENCLOSURE, zoo._enclosures.get("enc_euc_1"))
+    zoo.place_item(2, 2, "enclosure_koala", TileType.ENCLOSURE, zoo._enclosures.get("enc_euc_1"))
+    
+    # Top-right: Outback Plains (2x2)
+    zoo.place_item(6, 1, "enclosure_outback", TileType.ENCLOSURE, zoo._enclosures.get("enc_out_1"))
+    zoo.place_item(7, 1, "enclosure_outback", TileType.ENCLOSURE, zoo._enclosures.get("enc_out_1"))
+    zoo.place_item(6, 2, "enclosure_outback", TileType.ENCLOSURE, zoo._enclosures.get("enc_out_1"))
+    zoo.place_item(7, 2, "enclosure_outback", TileType.ENCLOSURE, zoo._enclosures.get("enc_out_1"))
+    
+    # Middle-left: Bird Paradise (2x2)
+    zoo.place_item(1, 5, "enclosure_aviary", TileType.ENCLOSURE, zoo._enclosures.get("enc_avi_1"))
+    zoo.place_item(2, 5, "enclosure_aviary", TileType.ENCLOSURE, zoo._enclosures.get("enc_avi_1"))
+    zoo.place_item(1, 6, "enclosure_aviary", TileType.ENCLOSURE, zoo._enclosures.get("enc_avi_1"))
+    zoo.place_item(2, 6, "enclosure_aviary", TileType.ENCLOSURE, zoo._enclosures.get("enc_avi_1"))
+    
+    # Middle-right: Crocodile Creek (2x2)
+    zoo.place_item(6, 5, "enclosure_billabong", TileType.ENCLOSURE, zoo._enclosures.get("enc_bil_1"))
+    zoo.place_item(7, 5, "enclosure_billabong", TileType.ENCLOSURE, zoo._enclosures.get("enc_bil_1"))
+    zoo.place_item(6, 6, "enclosure_billabong", TileType.ENCLOSURE, zoo._enclosures.get("enc_bil_1"))
+    zoo.place_item(7, 6, "enclosure_billabong", TileType.ENCLOSURE, zoo._enclosures.get("enc_bil_1"))
+    
+    # Bottom-center: Reptile Realm (2x2)
+    zoo.place_item(4, 7, "enclosure_reptile", TileType.ENCLOSURE, zoo._enclosures.get("enc_rep_1"))
+    zoo.place_item(5, 7, "enclosure_reptile", TileType.ENCLOSURE, zoo._enclosures.get("enc_rep_1"))
+    zoo.place_item(4, 8, "enclosure_reptile", TileType.ENCLOSURE, zoo._enclosures.get("enc_rep_1"))
+    zoo.place_item(5, 8, "enclosure_reptile", TileType.ENCLOSURE, zoo._enclosures.get("enc_rep_1"))
+    
+    # Add scenery around the zoo
+    # Trees
+    zoo.place_item(0, 0, "tree", TileType.SCENERY)
+    zoo.place_item(3, 0, "tree", TileType.SCENERY)
+    zoo.place_item(9, 0, "tree", TileType.SCENERY)
+    zoo.place_item(0, 3, "tree", TileType.SCENERY)
+    zoo.place_item(9, 3, "tree", TileType.SCENERY)
+    zoo.place_item(0, 7, "tree", TileType.SCENERY)
+    zoo.place_item(9, 7, "tree", TileType.SCENERY)
+    zoo.place_item(3, 9, "tree", TileType.SCENERY)
+    zoo.place_item(6, 9, "tree", TileType.SCENERY)
+    
+    # Bushes
+    zoo.place_item(0, 1, "bush", TileType.SCENERY)
+    zoo.place_item(9, 1, "bush", TileType.SCENERY)
+    zoo.place_item(0, 8, "bush", TileType.SCENERY)
+    zoo.place_item(9, 8, "bush", TileType.SCENERY)
+    
+    # Flowers
+    zoo.place_item(4, 0, "flowers", TileType.SCENERY)
+    zoo.place_item(5, 0, "flowers", TileType.SCENERY)
+    
+    # Water feature in center
+    zoo.place_item(4, 4, "water", TileType.SCENERY)
+    
+    # Visitor facilities
+    zoo.place_item(0, 9, "ticket-booth", TileType.SHOP)  # Entrance (bottom-left)
+    zoo.place_item(1, 9, "food-stall", TileType.SHOP)    # Food nearby
+    zoo.place_item(8, 9, "restroom", TileType.SHOP)      # Restroom (bottom-right)
+    zoo.place_item(9, 9, "bench", TileType.SHOP)          # Bench for visitors
+    
+    # Restore original budget (starter items are free)
+    zoo._budget = original_budget
+    # Reset expenses to 0 since these are starter items
+    zoo._total_expenses = 0.0
+

@@ -19,6 +19,7 @@ from ozzoo.ui.frames.zoo_status import ZooStatusFrame
 from ozzoo.ui.frames.animal_view import AnimalViewFrame
 from ozzoo.ui.frames.enclosure_view import EnclosureViewFrame
 from ozzoo.ui.frames.shop import ShopFrame
+from ozzoo.ui.frames.map_view import MapViewFrame
 from ozzoo.ui.frames.settings import SettingsFrame
 
 
@@ -36,6 +37,7 @@ def main() -> None:
     app.register_frame("zoo_status", ZooStatusFrame)
     app.register_frame("animal_view", AnimalViewFrame)
     app.register_frame("enclosure_view", EnclosureViewFrame)
+    app.register_frame("map_view", MapViewFrame)
     app.register_frame("shop", ShopFrame)
     app.register_frame("settings", SettingsFrame)
     

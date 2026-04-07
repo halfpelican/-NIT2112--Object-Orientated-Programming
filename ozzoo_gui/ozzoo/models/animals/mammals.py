@@ -115,7 +115,7 @@ class Kangaroo(Mammal):
 
     def make_sound(self) -> str:
         """Return the sound a kangaroo makes."""
-        return f"{self._name} makes a clucking sound!"
+        return f"{self._name} makes a soft clucking sound!"
 
     def get_diet(self) -> str:
         """Return the kangaroo's diet type."""
