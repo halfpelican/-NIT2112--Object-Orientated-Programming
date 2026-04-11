@@ -8,7 +8,7 @@ Each enclosure provides a specific habitat type for compatible animals.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from .animals.animal import Animal
@@ -30,6 +30,7 @@ class Enclosure(ABC):
 
     MAX_CLEANLINESS = 100
     DIRTY_THRESHOLD = 30  # Needs cleaning
+    MAX_BARRIER_LEVEL = 3
 
     def __init__(self, enclosure_id: str, name: str, capacity: int) -> None:
         """
@@ -45,6 +46,8 @@ class Enclosure(ABC):
         self._capacity = capacity
         self._animals: List[Animal] = []
         self._cleanliness = 80  # Starts fairly clean
+        self._barrier_level = 0
+        self._anchor_tile: Optional[tuple[int, int]] = None
 
     # Properties (read-only for id/name/capacity, read-write for cleanliness)
     @property
@@ -92,6 +95,24 @@ class Enclosure(ABC):
         """Return number of available spots."""
         return max(0, self._capacity - len(self._animals))
 
+    @property
+    def barrier_level(self) -> int:
+        """Return reinforced barrier level (0-3)."""
+        return self._barrier_level
+
+    @property
+    def anchor_tile(self) -> Optional[tuple[int, int]]:
+        """Return the top-left map tile for this enclosure footprint, if known."""
+        return self._anchor_tile
+
+    def set_anchor_tile(self, x: int, y: int) -> None:
+        """Store the top-left map tile for this enclosure footprint."""
+        self._anchor_tile = (x, y)
+
+    def clear_anchor_tile(self) -> None:
+        """Clear the stored top-left map tile anchor."""
+        self._anchor_tile = None
+
     # Abstract methods
     @abstractmethod
     def clean(self) -> str:
@@ -132,7 +153,9 @@ class Enclosure(ABC):
         if self.is_full:
             raise HabitatCapacityExceededError(self._name, self._capacity)
 
-        if animal.get_habitat_type() != self.get_habitat_type():
+        species_is_compatible = animal.species in self.get_compatible_species()
+        habitat_matches = animal.get_habitat_type() == self.get_habitat_type()
+        if not species_is_compatible and not habitat_matches:
             raise InvalidHabitatError(
                 animal.name, self._name, animal.get_habitat_type()
             )
@@ -182,21 +205,41 @@ class Enclosure(ABC):
             "capacity": self._capacity,
             "animal_count": len(self._animals),
             "cleanliness": self._cleanliness,
+            "barrier_level": self._barrier_level,
             "is_dirty": self.is_dirty,
             "is_full": self.is_full,
             "habitat_type": self.get_habitat_type(),
         }
 
+    def upgrade_barrier(self) -> bool:
+        """
+        Upgrade reinforced barriers by one level.
+
+        Returns:
+            True if upgraded, False if already at max level.
+        """
+        if self._barrier_level >= self.MAX_BARRIER_LEVEL:
+            return False
+        self._barrier_level += 1
+        return True
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to dictionary for JSON save."""
-        return {
+        data: Dict[str, Any] = {
             "enclosure_id": self._enclosure_id,
             "name": self._name,
             "capacity": self._capacity,
             "cleanliness": self._cleanliness,
+            "barrier_level": self._barrier_level,
             "habitat_type": self.get_habitat_type(),
             "animal_names": [animal.name for animal in self._animals],
         }
+        if self._anchor_tile is not None:
+            data["anchor_tile"] = {
+                "x": self._anchor_tile[0],
+                "y": self._anchor_tile[1],
+            }
+        return data
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> Enclosure:
@@ -217,6 +260,26 @@ class Enclosure(ABC):
             capacity=data.get("capacity"),
         )
         enclosure._cleanliness = data.get("cleanliness", 80)
+        enclosure._barrier_level = max(
+            0,
+            min(
+                enclosure.MAX_BARRIER_LEVEL,
+                int(data.get("barrier_level", 0)),
+            ),
+        )
+        anchor_tile = data.get("anchor_tile")
+        if (
+            isinstance(anchor_tile, dict)
+            and "x" in anchor_tile
+            and "y" in anchor_tile
+        ):
+            try:
+                enclosure._anchor_tile = (
+                    int(anchor_tile["x"]),
+                    int(anchor_tile["y"]),
+                )
+            except (TypeError, ValueError):
+                enclosure._anchor_tile = None
         # Note: Animals are linked separately after all objects are loaded
         return enclosure
 
@@ -290,7 +353,13 @@ class EucalyptusGrove(Enclosure):
 
     def get_compatible_species(self) -> List[str]:
         """Return list of compatible species."""
-        return ["Koala"]
+        return [
+            "Koala",
+            "RingtailPossum",
+            "Goanna",
+            "CarpetPython",
+            "EasternBrownSnake",
+        ]
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to dictionary for JSON save."""
@@ -457,7 +526,7 @@ class RainforestAviary(Enclosure):
 
     def get_compatible_species(self) -> List[str]:
         """Return list of compatible species."""
-        return ["Emu", "WedgeTailedEagle"]
+        return ["Emu", "WedgeTailedEagle", "Kookaburra"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to dictionary for JSON save."""
@@ -512,7 +581,13 @@ class ReptileHouse(Enclosure):
 
     def get_compatible_species(self) -> List[str]:
         """Return list of compatible species."""
-        return ["FrilledLizard"]
+        return [
+            "FrilledLizard",
+            "BlueTonguedSkink",
+            "Goanna",
+            "CarpetPython",
+            "EasternBrownSnake",
+        ]
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to dictionary for JSON save."""

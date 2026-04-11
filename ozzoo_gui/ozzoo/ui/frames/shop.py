@@ -25,9 +25,17 @@ class ShopFrame(tk.Frame):
     """
     
     def __init__(self, parent: tk.Frame, app: OzZooApp):
+        """
+        Initialise the shop frame and tabbed purchasing interface.
+
+        Args:
+            parent: Parent container widget.
+            app: Shared application controller.
+        """
         super().__init__(parent, bg=app.COLOURS["background"])
         self._app = app
         self._zoo = app.zoo
+        self._scroll_canvases: list[tk.Canvas] = []
         self._setup_ui()
     
     def _setup_ui(self) -> None:
@@ -72,6 +80,78 @@ class ShopFrame(tk.Frame):
         self._create_food_tab(notebook)
         self._create_medicine_tab(notebook)
         self._create_animals_tab(notebook)
+        self._enable_mousewheel_scrolling()
+
+    def _enable_mousewheel_scrolling(self) -> None:
+        """Enable mouse-wheel scrolling for Shop tab canvases."""
+        if not self._scroll_canvases:
+            return
+
+        def _is_inside_canvas(widget: tk.Misc | None, canvas: tk.Canvas) -> bool:
+            while widget is not None:
+                if widget == canvas:
+                    return True
+                widget = widget.master
+            return False
+
+        def _get_target_canvas() -> tk.Canvas | None:
+            hovered = self.winfo_containing(self.winfo_pointerx(), self.winfo_pointery())
+            for canvas in self._scroll_canvases:
+                if not canvas.winfo_exists():
+                    continue
+                if _is_inside_canvas(hovered, canvas):
+                    return canvas
+            return None
+
+        def _on_mousewheel(event: tk.Event) -> str:
+            canvas = _get_target_canvas()
+            if canvas is None or event.delta == 0:
+                return "break"
+            step = -1 if event.delta > 0 else 1
+            canvas.yview_scroll(step, "units")
+            return "break"
+
+        def _on_mousewheel_linux(event: tk.Event) -> str:
+            canvas = _get_target_canvas()
+            if canvas is None:
+                return "break"
+            if getattr(event, "num", None) == 4:
+                canvas.yview_scroll(-1, "units")
+            elif getattr(event, "num", None) == 5:
+                canvas.yview_scroll(1, "units")
+            return "break"
+
+        def _cleanup_mousewheel_bindings(event: tk.Event) -> None:
+            if event.widget is self:
+                self.unbind_all("<MouseWheel>")
+                self.unbind_all("<Button-4>")
+                self.unbind_all("<Button-5>")
+
+        self.bind_all("<MouseWheel>", _on_mousewheel)
+        self.bind_all("<Button-4>", _on_mousewheel_linux)
+        self.bind_all("<Button-5>", _on_mousewheel_linux)
+        self.bind("<Destroy>", _cleanup_mousewheel_bindings)
+
+    def _normalise_species_token(self, value: str) -> str:
+        """Normalise species/type strings so different naming styles still match."""
+        return value.lower().replace("_", "").replace("-", "").replace(" ", "")
+
+    def _is_enclosure_compatible(self, animal_type: str, info: dict, enclosure: object) -> bool:
+        """
+        Return True if the enclosure is compatible with the selected animal.
+
+        Compatibility supports both:
+        - primary habitat match, and
+        - explicit enclosure species compatibility (for multi-habitat species).
+        """
+        if enclosure.get_habitat_type() == info["habitat"]:
+            return True
+
+        normalised_animal = self._normalise_species_token(animal_type)
+        return any(
+            self._normalise_species_token(species) == normalised_animal
+            for species in enclosure.get_compatible_species()
+        )
     
     def _create_food_tab(self, notebook: ttk.Notebook) -> None:
         """Create the food purchasing tab."""
@@ -172,6 +252,7 @@ class ShopFrame(tk.Frame):
         )
         canvas.create_window((0, 0), window=scrollable, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
+        self._scroll_canvases.append(canvas)
         
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
@@ -180,6 +261,189 @@ class ShopFrame(tk.Frame):
         all_info = AnimalFactory.get_all_animal_info()
         for animal_type, info in all_info.items():
             self._create_animal_card(scrollable, animal_type, info)
+    
+    def _create_enclosures_tab(self, notebook: ttk.Notebook) -> None:
+        """Create the enclosure purchasing tab."""
+        from ...models.enclosure import ENCLOSURE_TYPES
+        
+        frame = tk.Frame(notebook, bg=self._app.COLOURS["card_bg"])
+        notebook.add(frame, text="🏕️ Enclosures")
+        
+        # Info header
+        info_frame = tk.LabelFrame(
+            frame,
+            text="Build New Enclosures",
+            bg=self._app.COLOURS["card_bg"],
+            font=("Segoe UI", 11, "bold")
+        )
+        info_frame.pack(fill="x", padx=15, pady=10)
+        
+        tk.Label(
+            info_frame,
+            text="Purchase enclosures to house more animals. After purchase, place them on the Zoo Map.",
+            bg=self._app.COLOURS["card_bg"],
+            font=("Segoe UI", 9),
+            wraplength=600
+        ).pack(pady=10, padx=10)
+        
+        # Scrollable frame
+        canvas = tk.Canvas(
+            frame,
+            bg=self._app.COLOURS["card_bg"],
+            highlightthickness=0
+        )
+        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview)
+        scrollable = tk.Frame(canvas, bg=self._app.COLOURS["card_bg"])
+        
+        scrollable.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        canvas.create_window((0, 0), window=scrollable, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        self._scroll_canvases.append(canvas)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Enclosure types with info
+        enclosure_info = {
+            "eucalyptus_grove": {
+                "name": "Eucalyptus Grove",
+                "emoji": "🐨",
+                "capacity": 8,
+                "cost": 5000,
+                "description": "Perfect for koalas, ringtail possums, goannas, and snake predators"
+            },
+            "outback_savanna": {
+                "name": "Outback Savanna",
+                "emoji": "🦘",
+                "capacity": 10,
+                "cost": 6000,
+                "description": "Wide open spaces for kangaroos, emus, and wombats"
+            },
+            "billabong": {
+                "name": "Billabong Wetland",
+                "emoji": "🐊",
+                "capacity": 6,
+                "cost": 7000,
+                "description": "Aquatic habitat for Saltwater Crocs and Platypus"
+            },
+            "rainforest_aviary": {
+                "name": "Rainforest Aviary",
+                "emoji": "🦅",
+                "capacity": 12,
+                "cost": 5500,
+                "description": "High-canopy habitat for Emus, Kookaburras, and Wedge-Tailed Eagles"
+            },
+            "reptile_house": {
+                "name": "Reptile House",
+                "emoji": "🦎",
+                "capacity": 10,
+                "cost": 6500,
+                "description": "Climate-controlled environment for skinks, lizards, goannas, and snakes"
+            }
+        }
+        
+        for enc_type, info in enclosure_info.items():
+            self._create_enclosure_card(scrollable, enc_type, info)
+    
+    def _create_enclosure_card(
+        self,
+        parent: tk.Frame,
+        enclosure_type: str,
+        info: dict
+    ) -> None:
+        """Create a card for purchasing an enclosure."""
+        card = tk.Frame(
+            parent,
+            bg=self._app.COLOURS["background"],
+            relief="raised",
+            bd=2
+        )
+        card.pack(fill="x", padx=15, pady=8)
+        
+        # Info section
+        info_section = tk.Frame(card, bg=self._app.COLOURS["background"])
+        info_section.pack(side="left", fill="x", expand=True, padx=15, pady=12)
+        
+        # Title row
+        title_frame = tk.Frame(info_section, bg=self._app.COLOURS["background"])
+        title_frame.pack(anchor="w", fill="x")
+        
+        tk.Label(
+            title_frame,
+            text=f"{info['emoji']} {info['name']}",
+            bg=self._app.COLOURS["background"],
+            fg=self._app.COLOURS["text"],
+            font=("Segoe UI", 13, "bold")
+        ).pack(side="left")
+        
+        # Details
+        tk.Label(
+            info_section,
+            text=info["description"],
+            bg=self._app.COLOURS["background"],
+            fg=self._app.COLOURS["secondary"],
+            font=("Segoe UI", 9),
+            wraplength=400
+        ).pack(anchor="w", pady=(3, 0))
+        
+        tk.Label(
+            info_section,
+            text=f"Capacity: {info['capacity']} animals | Size: 2x2 tiles",
+            bg=self._app.COLOURS["background"],
+            fg=self._app.COLOURS["text"],
+            font=("Segoe UI", 9)
+        ).pack(anchor="w", pady=(3, 0))
+        
+        tk.Label(
+            info_section,
+            text=f"Cost: ${info['cost']:,}",
+            bg=self._app.COLOURS["background"],
+            fg=self._app.COLOURS["success"],
+            font=("Segoe UI", 11, "bold")
+        ).pack(anchor="w", pady=(5, 0))
+        
+        # Purchase button
+        buy_btn = tk.Button(
+            card,
+            text="Purchase",
+            command=lambda: self._buy_enclosure(enclosure_type, info),
+            bg=self._app.COLOURS["primary"],
+            fg=self._app.COLOURS["text_light"],
+            font=("Segoe UI", 11),
+            relief=tk.FLAT,
+            padx=25,
+            pady=10
+        )
+        buy_btn.pack(side="right", padx=15, pady=12)
+    
+    def _buy_enclosure(self, enclosure_type: str, info: dict) -> None:
+        """Purchase an enclosure (to be placed on map later)."""
+        from ...exceptions import InsufficientFundsError
+        
+        if self._zoo.budget < info['cost']:
+            self._app.show_warning(
+                "Insufficient Funds",
+                f"You need ${info['cost']:,} to purchase this enclosure.\n"
+                f"Current budget: ${self._zoo.budget:,.2f}"
+            )
+            return
+        
+        # Deduct cost
+        self._zoo._budget -= info['cost']
+        self._zoo._total_expenses += info['cost']
+        
+        self._app.show_info(
+            "Enclosure Purchased!",
+            f"{info['emoji']} {info['name']} purchased for ${info['cost']:,}!\n\n"
+            f"Go to the Zoo Map to place your new enclosure.\n"
+            f"It requires a 2x2 space."
+        )
+        
+        self._update_budget()
+        self._app.update_header_info()
     
     def _create_purchase_row(
         self,
@@ -401,11 +665,11 @@ class ShopFrame(tk.Frame):
         all_encs = [e for e in self._zoo.enclosures.values() if not e.is_full]
         compatible_encs = [
             e for e in all_encs
-            if e.get_habitat_type() == info["habitat"]
+            if self._is_enclosure_compatible(animal_type, info, e)
         ]
         incompatible_encs = [
             e for e in all_encs
-            if e.get_habitat_type() != info["habitat"]
+            if not self._is_enclosure_compatible(animal_type, info, e)
         ]
         
         enc_var = tk.StringVar()
@@ -494,16 +758,28 @@ class ShopFrame(tk.Frame):
                 return
             
             try:
-                self._zoo.purchase_animal(
+                new_animal = self._zoo.purchase_animal(
                     animal_type,
                     name,
                     age_var.get(),
                     enc_id,
                     gender_var.get()
                 )
+                enclosure = self._zoo.enclosures.get(enc_id)
+                predation_warning = ""
+                if enclosure is not None:
+                    predation_risk, predation_summary = self._zoo.get_enclosure_predation_status(
+                        enclosure.enclosure_id
+                    )
+                    if predation_risk >= self._zoo.PREDATION_LOW_RISK_THRESHOLD:
+                        predation_warning = (
+                            "\n\n⚠ Predation Risk Detected:\n"
+                            f"{predation_summary}\n"
+                            "Consider reinforcing barriers or separating species."
+                        )
                 self._app.show_info(
                     "Purchase Complete",
-                    f"Welcome {name} to OzZoo! They are happy in their new home."
+                    f"Welcome {new_animal.name} to OzZoo!{predation_warning}"
                 )
                 self._update_budget()
                 self._app.update_header_info()
